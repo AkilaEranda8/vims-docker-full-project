@@ -29,6 +29,14 @@ router
   .route('/summery/paidsummery')
   .get(salesorderController.getPaymentStatsummery);
 
+// ==================== CUSTOMER OUTSTANDING BALANCE ====================
+// Get outstanding balance for a specific customer
+// Must be defined BEFORE :id routes to avoid conflicts
+
+router
+  .route('/customer/:customerId/outstanding-balance')
+  .get(auth(), salesorderController.getCustomerOutstandingBalance);
+
 // ==================== CRUD ROUTES ====================
 
 router

@@ -573,6 +573,73 @@ const bulkUpdatePaymentStatus = async (orderIds, paymentStatus) => {
   };
 };
 
+/**
+ * Get Customer Outstanding Balance
+ * Returns total outstanding (unpaid) amount for a specific customer
+ * including list of unpaid orders
+ */
+const getCustomerOutstandingBalance = async (customerId) => {
+  try {
+    // Get summary of unpaid orders
+    const summaryResult = await db.sequelize.query(
+      `
+      SELECT 
+        COUNT(*) AS UnpaidOrderCount,
+        COALESCE(SUM(TotalAmount), 0) AS TotalOutstandingAmount
+      FROM salesorders
+      WHERE CustomerID = :customerId 
+        AND PaymentStatus = 'UNPAID' 
+        AND isActive = 1
+      `,
+      {
+        replacements: { customerId },
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    );
+
+    // Get list of unpaid orders with details
+    const unpaidOrders = await db.sequelize.query(
+      `
+      SELECT 
+        so.OrderID,
+        so.OrderDate,
+        so.TotalAmount,
+        so.Discount,
+        so.Status
+      FROM salesorders so
+      WHERE so.CustomerID = :customerId 
+        AND so.PaymentStatus = 'UNPAID' 
+        AND so.isActive = 1
+      ORDER BY so.OrderDate DESC
+      `,
+      {
+        replacements: { customerId },
+        type: db.sequelize.QueryTypes.SELECT
+      }
+    );
+
+    const summary = summaryResult[0] || { UnpaidOrderCount: 0, TotalOutstandingAmount: 0 };
+
+    return {
+      success: true,
+      customerId: parseInt(customerId),
+      outstandingBalance: parseFloat(summary.TotalOutstandingAmount) || 0,
+      unpaidOrderCount: parseInt(summary.UnpaidOrderCount) || 0,
+      unpaidOrders: unpaidOrders
+    };
+  } catch (error) {
+    console.error('Customer Outstanding Balance Error:', error.message);
+    return {
+      success: false,
+      customerId: parseInt(customerId),
+      outstandingBalance: 0,
+      unpaidOrderCount: 0,
+      unpaidOrders: [],
+      error: error.message
+    };
+  }
+};
+
 module.exports = {
   getPaymentStatusSummary,
   createsalesorder,
@@ -586,5 +653,7 @@ module.exports = {
   // Additional report functions
   getMonthlySalesTrends,
   getSalesByCustomerReport,
-  getUnpaidOrdersByDateRange
+  getUnpaidOrdersByDateRange,
+  // Customer outstanding balance
+  getCustomerOutstandingBalance
 };

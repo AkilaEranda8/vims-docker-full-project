@@ -224,6 +224,40 @@ const bulkMarkAsPaid = catchAsync(async (req, res) => {
     });
 });
 
+/**
+ * Get Customer Outstanding Balance
+ * Returns the total unpaid amount for the specified customer
+ */
+const getCustomerOutstandingBalance = catchAsync(async (req, res) => {
+    const { customerId } = req.params;
+
+    if (!customerId) {
+        return res.status(httpStatus.BAD_REQUEST).send({
+            status: "failure",
+            message: "customerId parameter is required"
+        });
+    }
+
+    const result = await Salesorderservices.getCustomerOutstandingBalance(customerId);
+
+    if (!result.success) {
+        return res.status(httpStatus.INTERNAL_SERVER_ERROR).send({
+            status: "failure",
+            message: "Failed to fetch outstanding balance",
+            error: result.error
+        });
+    }
+
+    return res.status(httpStatus.OK).send({
+        status: "success",
+        message: "Customer outstanding balance retrieved successfully",
+        customerId: result.customerId,
+        outstandingBalance: result.outstandingBalance,
+        unpaidOrderCount: result.unpaidOrderCount,
+        unpaidOrders: result.unpaidOrders
+    });
+});
+
 module.exports = {
     createsalesorder,
     getallsalesorder,
@@ -237,5 +271,7 @@ module.exports = {
     // Additional report functions
     getMonthlySalesTrends,
     getSalesByCustomerReport,
-    getUnpaidOrdersReport
+    getUnpaidOrdersReport,
+    // Customer outstanding balance
+    getCustomerOutstandingBalance
 };
