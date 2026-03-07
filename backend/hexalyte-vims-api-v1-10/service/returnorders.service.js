@@ -522,16 +522,44 @@ const createReturnSalesOrder = async (orderId, params) => {
 
             response.data.creditBalance = creditBalance;
             
-            // Update sales order status to RETURNED
+            // Check if ALL items in the order have been returned
+            // Calculate total quantity in original order
+            const totalOrderedQuantity = orderItems.reduce((sum, item) => {
+                return sum + parseFloat(item.Quantity);
+            }, 0);
+
+            // Calculate total returned quantity (including this return + previous returns)
+            let totalReturnedQuantity = 0;
+            for (const returnItem of ReturnItems) {
+                totalReturnedQuantity += parseFloat(returnItem.Quantity);
+            }
+            // Add previously returned quantities
+            for (const productId in returnedQuantities) {
+                totalReturnedQuantity += parseFloat(returnedQuantities[productId]);
+            }
+
+            // Prepare update object for sales order
+            const salesOrderUpdate = { Status: 'RETURNED' };
+            
+            // If ALL items are returned, reverse the payment (set to UNPAID)
+            if (totalReturnedQuantity >= totalOrderedQuantity) {
+                salesOrderUpdate.PaymentStatus = 'UNPAID';
+                response.message = 'Return processed successfully - Order marked as UNPAID (all items returned)';
+            }
+            
+            // Update sales order status (and payment status if all returned)
             await SalesOrders.update(
-                { Status: 'RETURNED' },
+                salesOrderUpdate,
                 { where: { OrderID: orderId }, transaction }
             );
             
             await transaction.commit();
 
             response.status = 'success';
-            response.message = 'Return processed successfully';
+            // Message is already set above based on whether all items were returned
+            if (!response.message) {
+                response.message = 'Return processed successfully';
+            }
 
             if (ExchangeItems.length > 0) {
                 if (response.data.payableAmount > 0) {
